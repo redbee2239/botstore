@@ -40,7 +40,7 @@ export default {
     try {
       const transcript = await saveTranscript(interaction.channel, {
         orderId: ticket.orderId,
-        type: ticket.type || 'order',
+        type: ticket.buttonLabel || ticket.type || 'order',
         closedBy: interaction.user.tag || interaction.user.username,
       });
 

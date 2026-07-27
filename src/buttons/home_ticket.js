@@ -1,16 +1,17 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, ChannelType, PermissionFlagsBits } from 'discord.js';
 import config from '../config/config.js';
 
-export default {
-  customId: 'home_ticket',
-
-  async execute(interaction, client) {
+export async function createTicket(interaction, client, {
+  type = 'support',
+  title = 'Hỗ trợ',
+  panelButtonId = null,
+} = {}) {
     if (!interaction.guild) {
       return interaction.reply({ content: '❌ Ticket chỉ có thể tạo trong server.', ephemeral: true });
     }
 
     const existingTicket = await client.db.tickets.findOne(ticket =>
-      ticket.type === 'support' &&
+      ticket.type === type &&
       ticket.userId === interaction.user.id &&
       ticket.status === 'Open'
     );
@@ -19,7 +20,7 @@ export default {
       const existingChannel = interaction.guild.channels.cache.get(existingTicket.channelId);
       if (existingChannel) {
         return interaction.reply({
-          content: `Bạn đã có ticket hỗ trợ đang mở: <#${existingChannel.id}>`,
+          content: `Bạn đã có ticket **${title}** đang mở: <#${existingChannel.id}>`,
           ephemeral: true,
         });
       }
@@ -84,8 +85,10 @@ export default {
           })),
       ];
 
-      const ticketChannel = await interaction.guild.channels.create({
-        name: `support-${interaction.user.id}`,
+    const ticketChannel = await interaction.guild.channels.create({
+      name: type === 'support'
+        ? `support-${interaction.user.id}`
+        : `ticket-${panelButtonId || 'panel'}-${interaction.user.id}`,
         type: ChannelType.GuildText,
         parent: ticketCategory.id,
         permissionOverwrites,
@@ -93,25 +96,26 @@ export default {
 
       await client.db.tickets.create({
         channelId: ticketChannel.id,
-        type: 'support',
+        type,
+        ...(panelButtonId ? { panelButtonId, buttonLabel: title } : {}),
         userId: interaction.user.id,
         status: 'Open',
         createdAt: Date.now(),
       });
 
       const embed = new EmbedBuilder()
-        .setTitle('🎫 Ticket hỗ trợ mới')
+        .setTitle(`🎫 Ticket ${title}`)
         .setDescription('Vui lòng mô tả vấn đề của bạn. Staff sẽ phản hồi sớm nhất có thể.')
         .setColor('#5865F2')
         .setTimestamp();
 
       await ticketChannel.send({
-        content: `<@${interaction.user.id}> Ticket hỗ trợ đã được tạo.`,
+        content: `<@${interaction.user.id}> Ticket **${title}** đã được tạo.`,
         embeds: [embed],
         components: [
           new ActionRowBuilder().addComponents(
             new ButtonBuilder()
-              .setCustomId('ticket_close_support')
+              .setCustomId(`ticket_close_${type}`)
               .setLabel('Đóng Ticket')
               .setEmoji('🔒')
               .setStyle(ButtonStyle.Secondary)
@@ -119,10 +123,17 @@ export default {
         ],
       });
 
-      await interaction.editReply({ content: `✅ Đã tạo ticket hỗ trợ: <#${ticketChannel.id}>` });
+      await interaction.editReply({ content: `✅ Đã tạo ticket **${title}**: <#${ticketChannel.id}>` });
     } catch (error) {
-      console.error('[Support Ticket Error]:', error);
-      await interaction.editReply({ content: '❌ Không thể tạo ticket hỗ trợ lúc này.' });
+      console.error('[Ticket Error]:', error);
+      await interaction.editReply({ content: '❌ Không thể tạo ticket lúc này.' });
     }
+}
+
+export default {
+  customId: 'home_ticket',
+
+  execute(interaction, client) {
+    return createTicket(interaction, client);
   },
 };
