@@ -1,4 +1,4 @@
-import { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } from 'discord.js';
+import { AttachmentBuilder, PermissionFlagsBits } from 'discord.js';
 import config from '../config/config.js';
 import { saveTranscript } from '../utils/transcript.js';
 
@@ -54,14 +54,7 @@ export default {
         }
       );
 
-      if (interaction.channel?.permissionOverwrites) {
-        await interaction.channel.permissionOverwrites.edit(ticket.userId, {
-          SendMessages: false,
-        });
-      }
-
       const logChannelId = config.channels.ticketLog || config.channels.log;
-      let transcriptLogChannelId = null;
 
       if (logChannelId) {
         try {
@@ -72,22 +65,12 @@ export default {
             content: `🔒 Ticket **${interaction.channel.name}** đã đóng bởi <@${interaction.user.id}>.`,
             files: [new AttachmentBuilder(transcript.filePath, { name: transcript.filename })],
           });
-          transcriptLogChannelId = logChannel.id;
         } catch (error) {
           console.error('[Transcript Log Error]:', error);
         }
       }
 
-      const closedContent = [
-        interaction.message.content || '',
-        `\n🔒 Ticket đã đóng bởi <@${interaction.user.id}>. Transcript: \`${transcript.relativePath}\`.`,
-        transcriptLogChannelId ? ` Đã gửi file vào <#${transcriptLogChannelId}>.` : '',
-      ].join('');
-
-      await interaction.message.edit({
-        content: closedContent,
-        components: [],
-      });
+      await interaction.channel.delete(`Ticket closed by ${interaction.user.tag}`);
     } catch (error) {
       console.error('[Ticket Close Error]:', error);
       await interaction.followUp({ content: '❌ Không thể tạo transcript hoặc đóng ticket.', ephemeral: true });
