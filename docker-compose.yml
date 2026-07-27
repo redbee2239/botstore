@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  bot:
+    build: .
+    container_name: azurine_store_bot
+    restart: unless-stopped
+    volumes:
+      - ./data:/usr/src/app/data
+      - ./backup:/usr/src/app/backup
+      - ./logs:/usr/src/app/logs
+      - ./transcripts:/usr/src/app/transcripts
+    env_file:
+      - .env
